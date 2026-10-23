@@ -1,0 +1,9 @@
+path: .
+train: train.txt
+val: val.txt
+
+names:
+  0: red
+  1: yellow
+  2: green
+  3: traffic_light

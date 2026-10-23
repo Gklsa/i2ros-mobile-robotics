@@ -1,0 +1,282 @@
+/**:
+  ros__parameters:
+    world_frame: "world"
+    base_frame: "base_link"
+    ins_frame: "ins"
+
+    target_speed: 5.0
+    min_turn_speed: 1.0
+    max_lateral_accel: 1.6
+    max_throttle: 1.0
+    max_brake: 1.0
+    max_steering: 0.5
+    lookahead_distance: 5.0
+
+    # Disabled by default (threshold above the maximum possible confidence
+    # of 1.0) - only the whitelisted waypoint ranges below re-enable
+    # detection. The route has real lights only around waypoint zones near
+    # 71, 94, 130, and 150; everywhere else was a source of false positives (BEER sign,
+    # overpass structure, random red/yellow/green flecks on building
+    # facades and signage - the HSV masks alone are noisy across the whole
+    # scene, so restricting *where* we even look is far more robust than
+    # chasing each false positive individually).
+    traffic_light_confidence_threshold: 1.1
+
+    # Per-waypoint parameter overrides (JSON). Key is a waypoint index or an
+    # inclusive "lo-hi" range; value is a dict of traffic_light_* parameter
+    # overrides applied only while the car is in that range (reverts to the
+    # values above once it leaves). See TrafficLightDetector._TUNABLE_PARAMS
+    # for the full list of overridable names.
+    #
+    # 70-78, 90-98, 125-132, and 146-150: the confirmed real-light zones after the
+    # latest main-route waypoint update - re-enable detection there with the normal threshold.
+    # They use the same global
+    # housing/shape thresholds (already tuned from captured-frame pixel
+    # data: traffic_light_housing_bright_min_saturation=85,
+    # traffic_light_housing_bulb_min_circularity=0.40 above) rather than
+    # their own overrides, since both zones were verified against that same
+    # global tuning.
+    traffic_light_waypoint_overrides: '{"1-5": {"traffic_light_confidence_threshold": 0.7}, "70-77": {"traffic_light_confidence_threshold": 0.7}, "87-101": {"traffic_light_confidence_threshold": 0.7}, "126-131": {"traffic_light_confidence_threshold": 0.7, "traffic_light_bulb_min_value": 245.0, "traffic_light_bulb_hue_min_saturation": 80.0, "traffic_light_detect_yellow": true}, "145-150": {"traffic_light_confidence_threshold": 0.7}}'
+
+    # Map-anchored decision heads. Perception may still draw every visible
+    # signal, but decision accepts only the detection whose image position
+    # matches the one static head assigned to the current zone. Extending the
+    # first zone through wp79 also prevents braking inertia advancing the
+    # active waypoint to 78 from releasing a still-red latch.
+    red_light_waypoint_zones: "1-5,70-79,87-101,126-131,145-150"
+    red_light_fixed_stop_points: "1-5:2:-62.802:-10.575,70-79:75:229.300:16.989,87-101:94:140.542:3.254,126-131:130:45.835:10.480,145-150:150:-48.841812:1.667232"
+    red_light_mapped_heads: "1-5:-60.8:8.0:8.7,70-79:232.0:-8.3:8.6,87-101:127.7:3.6:7.8,126-131:47.0:-1.3:7.7,145-150:-71.0:2.2:8.7"
+    red_light_mapped_head_max_x_error: 0.06
+
+    waypoint_reach_threshold: 3.0
+    initial_waypoint_index: 0
+    # Unity can start at several spawnIndex values. Initialize planning from
+    # the vehicle's actual position so waypoint-gated traffic-light detection
+    # does not stay disabled at waypoint 0 after a nonzero spawn.
+    initialize_from_nearest_waypoint: true
+    follow_speed: 2.0
+    minimum_follow_speed: 0.5
+    follow_distance: 10.0
+    emergency_distance: 4.0
+    emergency_ttc_sec: 1.5
+    # Depth-cloud scenery false positives: disable ordinary FOLLOW slowdown
+    # here. Emergency braking is still active in 103-108; 139-142 is already
+    # listed in decision's emergency-suppression zone.
+    front_obstacle_follow_suppress_zones: "103-108,139-142"
+    traffic_light_timeout_sec: 1.0
+    obstacle_timeout_sec: 0.5
+    obstacle_lateral_limit: 2.0
+    obstacle_min_forward_distance: 0.5
+    obstacle_max_forward_distance: 25.0
+    obstacle_min_vertical: -1.5
+    obstacle_max_vertical: 0.8
+    pointcloud_sample_step: 4
+
+    rgb_image_topic: "/OurCar/Sensors/RGBCameraLeft/image_raw"
+    depth_image_topic: "/OurCar/Sensors/DepthCamera/image_raw"
+    depth_camera_info_topic: "/OurCar/Sensors/DepthCamera/camera_info"
+    depth_camera_fallback_fov_deg: 60.0
+    traffic_light_require_depth_for_state: true
+    traffic_light_state_min_depth_m: 1.5
+    traffic_light_state_max_depth_m: 22.0
+    traffic_light_state_max_lateral_angle_ratio: 0.32
+    traffic_light_state_topic: "/perception/traffic_light_state"
+    traffic_light_label_topic: "/perception/traffic_light_label"
+    traffic_light_detections_topic: "/perception/traffic_light_detections"
+    front_obstacle_distance_topic: "/perception/front_obstacle_distance"
+    front_car_distance_topic: "/perception/front_car_distance"
+    car_detections_topic: "/perception/car_detections"
+    car_debug_image_topic: "/perception/debug/car_detection_image"
+    combined_debug_image_topic: "/perception/debug/detection_combined"
+    car_confidence_threshold: 0.4
+    car_min_depth_m: 0.5
+    car_max_depth_m: 25.0
+    car_max_lateral_angle_ratio: 0.45
+    car_depth_percentile: 20.0
+    car_publish_debug_image: false
+    publish_combined_debug_image: true
+    # If the last-received /perception/traffic_light_detections message is
+    # older than this relative to the current camera frame, skip drawing its
+    # boxes on the combined debug image instead of overlaying a stale box on
+    # a newer frame (looks like jitter otherwise). Raised from 0.5s to 2.0s
+    # to 5.0s - full-frame YOLO inference (see traffic_light_yolo_imgsz) made
+    # the detector's own publish rate slower/laggier, and 2.0s was still
+    # hiding boxes that were still good enough to show.
+    combined_debug_traffic_light_max_age_sec: 5.0
+    car_label_topic: "/perception/car_label"
+    # Left side of the frame is a known source of false car candidates in
+    # this waypoint zone (e.g. parked/decorative cars); only the right half
+    # of the image is considered for waypoints in this range.
+    car_right_only_waypoint_ranges: "60-68"
+    car_right_only_min_x_ratio: 0.5
+    # No relevant NPC/front car outside the car-following (~39-63) and
+    # braking (~101-121) scenes - skip YOLO inference entirely there.
+    car_detection_disabled_waypoint_ranges: "0-39,68-101,121-130"
+    occupancy_grid_topic: "/perception/local_map"
+
+    traffic_light_min_pixels: 3
+    traffic_light_max_pixels: 650
+    traffic_light_min_bbox_width: 2
+    traffic_light_min_bbox_height: 3
+    traffic_light_roi_top_ratio: 0.0
+    # 0.67, not 0.52: excludes only the bottom 1/3 (road surface/hood), which
+    # widens the room close-range lights have before their (larger, lower)
+    # box gets clipped out of the ROI entirely.
+    traffic_light_roi_bottom_ratio: 0.67
+    # Full width - a tight left/right band clipped close-range lights the
+    # same way the old bottom_ratio=0.52 did.
+    traffic_light_roi_left_ratio: 0.0
+    traffic_light_roi_right_ratio: 1.0
+    traffic_light_min_aspect_ratio: 0.45
+    traffic_light_max_aspect_ratio: 2.2
+    traffic_light_min_extent: 0.20
+    traffic_light_max_extent: 0.82
+    traffic_light_min_center_fill: 0.38
+    traffic_light_min_circularity: 0.48
+    traffic_light_min_ellipse_ratio: 0.68
+    traffic_light_max_candidate_y_ratio: 0.72
+    traffic_light_max_same_color_context_ratio: 0.22
+    traffic_light_min_dark_context_ratio: 0.06
+    traffic_light_min_housing_context_ratio: 0.10
+    traffic_light_min_frame_context_ratio: 0.03
+    traffic_light_morph_kernel_size: 3
+    traffic_light_detect_green: true
+    # Runtime control only needs red and green. Yellow/gold housing pixels are
+    # deliberately not classified; an uncertain housing remains blue/box_only.
+    traffic_light_detect_yellow: false
+    # Measured on a captured frame: real lit-bulb pixels sit at S~146-148,
+    # while dozens of false "red" fragments from concrete-beam highlight
+    # edges sit at S~71-78. 110 clears the noise with margin on both sides.
+    traffic_light_red_min_saturation: 110.0
+    traffic_light_max_seed_components: 80
+
+    # Stage 1: traffic light housing/frame detection (dark box with bulb holes).
+    traffic_light_housing_dark_value: 100.0
+    traffic_light_housing_dark_value_soft: 145.0
+    traffic_light_housing_dark_saturation_soft: 95.0
+    # Lowered from 7: at close range a captured frame showed the bright
+    # housing mask bridging into a second nearby object (elongation
+    # collapsed to 1.24, well under the 1.8 minimum). 5 still closes real
+    # bulb holes but bridges less aggressively - re-verify the
+    # farther-distance captures (waypoint 40, 41) still pass after this.
+    traffic_light_housing_close_kernel: 5
+    traffic_light_housing_min_width: 3
+    traffic_light_housing_min_height: 7
+    traffic_light_housing_max_width_px: 70
+    traffic_light_housing_max_height_px: 180
+    traffic_light_housing_min_aspect: 1.8
+    traffic_light_housing_max_aspect: 8.0
+    traffic_light_housing_min_fill: 0.25
+    traffic_light_housing_max_fill: 0.98
+    # Bright/gold signal casings measured on two independent captured frames
+    # at S~60-90, vs. their surrounding concrete beam/wall background at
+    # S~40-80 - the two ranges overlap enough that the default gate (60)
+    # lets morphological closing fuse the housing into the background into
+    # one oversized, low-aspect blob that gets rejected. 85 cleanly isolates
+    # the housing as its own small, well-shaped component on both captures
+    # while still comfortably covering closer/more saturated housings
+    # (measured ~S147 on the nearest one seen so far).
+    traffic_light_housing_bright_min_saturation: 85.0
+    traffic_light_housing_pad_ratio: 0.25
+    traffic_light_housing_max_candidates: 6
+    # A real housing sits on a pole against open background; if most of the
+    # surrounding area is also dark, it's likely a fragment of a much larger
+    # dark structure (bridge underside, tunnel mouth, wall, pillar) instead.
+    traffic_light_housing_max_context_dark_ratio: 0.50
+    # Precision gate: is there a real round colored blob in this dark box at
+    # all. Stricter than the stage-2 in-housing thresholds below.
+    traffic_light_housing_seed_min_pixels: 3
+    traffic_light_housing_seed_min_circularity: 0.35
+    # Lowered from 0.55: a captured frame's only seed candidate for a real
+    # housing measured ellipse_ratio=0.35 (a thin vertical strip spanning
+    # the housing height, not a round bulb) - 0.55 rejected it outright, so
+    # that housing never got confirmed. 0.32 clears it with a small margin.
+    traffic_light_housing_seed_min_ellipse_ratio: 0.32
+
+    # Stage 2: bulb detection. Bulbs confirmed inside a housing use relaxed
+    # thresholds (better recall for dim/far/orange-tinted red); bare-blob
+    # fallback candidates without a housing keep strict thresholds plus a
+    # confidence penalty (fewer false positives from signs/billboards).
+    traffic_light_housing_confidence_bonus: 0.30
+    traffic_light_no_housing_confidence_penalty: 0.60
+    traffic_light_housing_bulb_min_pixels: 1
+    # Raised from 0.18: a captured frame showed a real lit bulb at circ=0.70
+    # next to a false "yellow" blob (fused/irregular background or unlit
+    # lens fragment) at circ=0.27 getting confirmed side by side - 0.18 let
+    # both through. 0.40 sits well clear of the false blob while leaving
+    # comfortable margin under the genuine bulb's 0.70.
+    traffic_light_housing_bulb_min_circularity: 0.40
+    traffic_light_housing_bulb_min_center_fill: 0.20
+    traffic_light_housing_bulb_min_color_ratio: 0.06
+    traffic_light_housing_bulb_min_ellipse_ratio: 0.40
+    traffic_light_no_housing_min_color_ratio: 0.12
+    traffic_light_require_housing_for_state: true
+    # Responsiveness-first runtime: YOLO currently publishes at only ~0.5 Hz,
+    # so even a two-frame confirmation can delay a stop/go update by 2-4 s.
+    # Use the newest frame immediately; accept some additional flicker.
+    traffic_light_history_size: 1
+    traffic_light_history_confirm_count: 1
+    # YOLO inference is low-rate and the car moves several pixels between
+    # detections. Requiring two IoU-matched observations made each moving
+    # light start a new track, replacing a valid bulb color with UNKNOWN/0.00
+    # before publication. Per-box color is immediate; the scalar state still
+    # uses the same newest-frame policy above.
+    traffic_light_track_history: 1
+    traffic_light_track_min_count: 1
+    traffic_light_detection_iou_suppress: 0.35
+    traffic_light_use_yolo: true
+    traffic_light_yolo_confidence_threshold: 0.35
+    # CPU-only runtime: 960 processes 2.25x as many pixels as 640 and reduces
+    # the live output to roughly 0.5 Hz while competing with car YOLO. The box
+    # model's preview workflow was validated at 640, so prefer responsiveness.
+    traffic_light_yolo_imgsz: 640
+    traffic_light_yolo_max_detections: 4
+    traffic_light_yolo_min_color_pixels: 2
+    traffic_light_yolo_min_color_ratio: 0.015
+    traffic_light_yolo_min_value: 120.0
+    # Exclude the simulator's orange/gold housing (H~14-22) from both red
+    # and yellow. Unclear/side-facing boxes should remain box_only.
+    traffic_light_bulb_red_hue_max: 13
+    traffic_light_bulb_yellow_hue_min: 23
+    traffic_light_bulb_yellow_hue_max: 38
+    # New (2026-07-23): require the lit third to be brighter than the other
+    # two thirds on the same housing by this much mean-V, and to be a solid
+    # blob in the center of its third rather than scattered/edge pixels -
+    # the housing's own gold color otherwise clears a plain absolute
+    # brightness threshold too. Starting values, not yet tuned against a
+    # broad captured-frame sample - re-check after collecting more red/green
+    # footage from the project data-collection runs.
+    traffic_light_yolo_min_brightness_margin: 10.0
+    traffic_light_yolo_min_center_fill: 0.15
+    traffic_light_debug_images: false
+    traffic_light_debug_hsv_images: false
+    # State/detections still publish for every processed frame; only expensive
+    # debug image rendering is reduced.
+    traffic_light_debug_stride: 2
+    traffic_light_show_windows: false
+    traffic_light_show_rejected_components: false
+    traffic_light_debug_roi_topic: "/perception/traffic_light/debug/roi"
+    traffic_light_debug_hsv_topic: "/perception/traffic_light/debug/hsv_panel"
+    traffic_light_debug_detection_topic: "/perception/traffic_light/debug/detection"
+    obstacle_roi_width_ratio: 0.35
+    obstacle_roi_height_ratio: 0.45
+    obstacle_min_valid_pixels: 20
+    obstacle_max_distance: 100.0
+    # Ground/sky band filter for /perception/pcl/points_preprocessed, kept
+    # independent of Unity's groundRemoval flag (see obstacle_detector.py).
+    ground_filter_min_vertical_m: -4.0
+    ground_filter_max_vertical_m: 2.5
+    occupancy_resolution: 0.25
+    occupancy_forward_range: 30.0
+    occupancy_lateral_range: 16.0
+    occupancy_max_depth: 40.0
+    occupancy_pixel_stride: 4
+    occupancy_mark_free_space: true
+
+    ins_frame_id: "OurCar/INS"
+    vehicle_center_frame_id: "OurCar/Center"
+    depth_camera_frame_id: "OurCar/Sensors/DepthCamera"
+    local_grid_frame_id: "OurCar/Sensors/DepthCamera"
+    rgb_left_frame_id: "OurCar/Sensors/RGBCameraLeft"
+    rgb_right_frame_id: "OurCar/Sensors/RGBCameraRight"
+    semantic_camera_frame_id: "OurCar/Sensors/SegCamera"
